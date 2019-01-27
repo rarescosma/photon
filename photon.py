@@ -89,12 +89,6 @@ def _split(xs: Iterable[A], p: Callable[[A], bool]) -> Tuple[List[A], List[A]]:
     return grouped.get(True, []), grouped.get(False, [])
 
 
-@effect
-def _scan_dir(d: Path) -> Iterable[Path]:
-    """Generate all file paths under d."""
-    return (f for f in d.rglob('*') if f.is_file() and not f.is_symlink())
-
-
 def _hash(file: Path) -> str:
     """Compute the MD5 digest of a file."""
     return md5(file.read_bytes()).hexdigest()
@@ -105,17 +99,23 @@ def _is_ancestor(d: Path, f: Path) -> bool:
     return str(f.resolve()).startswith(str(d.resolve()))
 
 
+def _relative(from_file: Path, to_file: Path) -> str:
+    """Get the relative path from_file to_file."""
+    return os.path.relpath(str(to_file), str(from_file.parent))
+
+
+@effect
+def _scan_dir(d: Path) -> Iterable[Path]:
+    """Generate all file paths under d."""
+    return (f for f in d.rglob('*') if f.is_file() and not f.is_symlink())
+
+
 @effect
 def _atomic_link(from_file: Path, to_file: Path) -> None:
     """Create a relative symlink from_file to_file."""
     tmp = Path(from_file.stem + _random_str())
     tmp.symlink_to(_relative(from_file, to_file))
     tmp.rename(from_file)
-
-
-def _relative(from_file: Path, to_file: Path) -> str:
-    """Get the relative path from_file to_file."""
-    return os.path.relpath(str(to_file), str(from_file.parent))
 
 
 @effect
