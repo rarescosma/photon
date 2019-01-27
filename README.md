@@ -6,14 +6,21 @@ It:
 
 * globs the from- and to- paths
 * matches files first by name, then by their MD5 hash
-* prints out all matching pairs
+* prints matching pairs
+* dedupes by symlinking
 
 ### Sample usage
 
 Find backlog photos that are already organized in an album:
 
 ```
-photon ~/Photos/Backlog ~/Photos/Albums | cut -f1
+photon match ~/Photos/Albums ~/Photos/Backlog | cut -f2
+```
+
+Symlink selected photos from an album:
+
+```
+photon dedupe ~/Photos/Albums/Cyprus ~/Photos/Albums/Cyprus/selects
 ```
 
 ### Installing
