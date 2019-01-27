@@ -11,7 +11,6 @@ import click
 @click.group()
 def cli():
     """Photo name matcher."""
-    pass
 
 
 @cli.command()
