@@ -1,10 +1,14 @@
 #!/usr/bin/env python3.7
 """Dead-simple tool for matching photos by name and hash."""
+import os
+import string
+import sys
 from collections import defaultdict
 from functools import partial
 from hashlib import md5
 from operator import attrgetter
 from pathlib import Path
+from random import choices
 from typing import (
     Callable, Dict, Hashable, Iterable, List, NamedTuple, Tuple, TypeVar,
 )
@@ -35,6 +39,16 @@ def match(from_dir: str, to_dir: str):
     """Find duplicates."""
     for m in set(_match(Path(from_dir), Path(to_dir))):
         print('\t'.join([str(m.orig), str(m.dupe), m.md5]))
+
+
+@cli.command()
+@existing_dir('from_dir')
+@existing_dir('to_dir')
+def dedupe(from_dir: str, to_dir: str):
+    """Deduplicate using symlinks."""
+    for m in set(_match(Path(from_dir), Path(to_dir))):
+        print(f'{str(m.dupe)} -> {str(m.orig)}', file=sys.__stderr__)
+        _atomic_link(m.dupe, to_file=m.orig)
 
 
 def _match(from_path: Path, to_path: Path) -> Iterable[Match]:
@@ -82,6 +96,23 @@ def _hash(file: Path) -> str:
 def _is_ancestor(d: Path, f: Path) -> bool:
     """True if d is an ancestor of f."""
     return str(f.resolve()).startswith(str(d.resolve()))
+
+
+def _atomic_link(from_file: Path, to_file: Path) -> None:
+    """Create a relative symlink from_file to_file."""
+    tmp = Path(from_file.stem + _random_str())
+    tmp.symlink_to(_relative(from_file, to_file))
+    tmp.rename(from_file)
+
+
+def _relative(from_file: Path, to_file: Path) -> str:
+    """Get the relative path from_file to_file."""
+    return os.path.relpath(str(to_file), str(from_file.parent))
+
+
+def _random_str(n: int = 12) -> str:
+    """Generate a random string on length n."""
+    return ''.join(choices(string.ascii_uppercase + string.digits, k=n))
 
 
 if __name__ == '__main__':
