@@ -4,13 +4,13 @@ import os
 import string
 import sys
 from collections import defaultdict
-from functools import partial
+from functools import partial, wraps
 from hashlib import md5
 from operator import attrgetter
 from pathlib import Path
 from random import choices
 from typing import (
-    Callable, Dict, Hashable, Iterable, List, NamedTuple, Tuple, TypeVar,
+    Any, Callable, Dict, Hashable, Iterable, List, NamedTuple, Tuple, TypeVar,
 )
 
 import click
@@ -30,6 +30,14 @@ existing_dir = partial(
 @click.group()
 def cli():
     """Photo name matcher."""
+
+
+def effect(f: Callable) -> Callable:
+    """Stigmatize side effects."""
+    @wraps(f)
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
+        return f(*args, **kwargs)
+    return wrapped
 
 
 @cli.command()
@@ -81,6 +89,7 @@ def _split(xs: Iterable[A], p: Callable[[A], bool]) -> Tuple[List[A], List[A]]:
     return grouped.get(True, []), grouped.get(False, [])
 
 
+@effect
 def _scan_dir(d: Path) -> Iterable[Path]:
     """Generate all file paths under d."""
     return (f for f in d.rglob('*') if f.is_file() and not f.is_symlink())
@@ -96,6 +105,7 @@ def _is_ancestor(d: Path, f: Path) -> bool:
     return str(f.resolve()).startswith(str(d.resolve()))
 
 
+@effect
 def _atomic_link(from_file: Path, to_file: Path) -> None:
     """Create a relative symlink from_file to_file."""
     tmp = Path(from_file.stem + _random_str())
@@ -108,6 +118,7 @@ def _relative(from_file: Path, to_file: Path) -> str:
     return os.path.relpath(str(to_file), str(from_file.parent))
 
 
+@effect
 def _random_str(n: int = 12) -> str:
     """Generate a random string on length n."""
     return ''.join(choices(string.ascii_uppercase + string.digits, k=n))
