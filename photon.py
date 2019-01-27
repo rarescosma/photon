@@ -3,9 +3,16 @@ from collections import defaultdict
 from hashlib import md5
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List
+from typing import (
+    Callable, Dict, Hashable, Iterable, List, NamedTuple, Tuple, TypeVar,
+)
 
 import click
+
+A = TypeVar('A')
+K = TypeVar('K', bound=Hashable)
+PathGroup = Dict[str, List[Path]]
+Match = NamedTuple('Match', [('orig', Path), ('dupe', Path), ('md5', str)])
 
 
 @click.group()
@@ -25,37 +32,44 @@ def cli():
     required=True,
 )
 def match(from_path: str, to_path: str):
-    from_map = _file_map(_scan_dir(Path(from_path)))
-    to_map = _file_map(_scan_dir(Path(to_path)))
+    from_map: PathGroup = _group_by(_scan_dir(Path(from_path)))
+    to_map: PathGroup = _group_by(_scan_dir(Path(to_path)))
 
     name_matches = set(from_map) & set(to_map)
 
     for m in name_matches:
-        for h, files in _file_map(
-                from_map[m] + to_map[m],
-                identify=_hash
-        ).items():
-            if len(files) > 1:
-                rep = "\t".join(str(f) for f in files)
-                print(f'{rep}\t{h}')
+        for h, fs in _group_by(from_map[m] + to_map[m], identify=_hash).items():
+            dupes, orig = _split(fs, lambda f: _is_ancestor(Path(to_path), f))
+            if orig:
+                orig_min = min(orig, key=lambda x: str(x.resolve()))
+                yield from (Match(orig=orig_min, dupe=d, md5=h) for d in dupes)
+
+
+def _group_by(
+        xs: Iterable[A],
+        identify: Callable[[A], K] = attrgetter('name')
+) -> Dict[K, List[A]]:
+    res: Dict[K, List[A]] = defaultdict(list)
+    for x in xs:
+        res[identify(x)].append(x)
+    return res
+
+
+def _split(xs: Iterable[A], p: Callable[[A], bool]) -> Tuple[List[A], List[A]]:
+    grouped = _group_by(xs, p)
+    return grouped.get(True, []), grouped.get(False, [])
 
 
 def _scan_dir(d: Path) -> Iterable[Path]:
-    return (f for f in d.rglob('*') if f.is_file())
-
-
-def _file_map(
-        files: Iterable[Path],
-        identify: Callable[[Path], str] = attrgetter('name')
-) -> Dict[str, List[Path]]:
-    res = defaultdict(list)
-    for f in files:
-        res[identify(f)].append(f)
-    return res
+    return (f for f in d.rglob('*') if f.is_file() and not f.is_symlink())
 
 
 def _hash(file: Path) -> str:
     return md5(file.read_bytes()).hexdigest()
+
+
+def _is_ancestor(d: Path, f: Path) -> bool:
+    return str(f.resolve()).startswith(str(d.resolve()))
 
 
 if __name__ == '__main__':
