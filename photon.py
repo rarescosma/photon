@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.7
 from collections import defaultdict
+from functools import partial
 from hashlib import md5
 from operator import attrgetter
 from pathlib import Path
@@ -14,6 +15,12 @@ K = TypeVar('K', bound=Hashable)
 PathGroup = Dict[str, List[Path]]
 Match = NamedTuple('Match', [('orig', Path), ('dupe', Path), ('md5', str)])
 
+existing_dir = partial(
+    click.argument,
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    required=True,
+)
+
 
 @click.group()
 def cli():
@@ -21,25 +28,23 @@ def cli():
 
 
 @cli.command()
-@click.argument(
-    'from_path',
-    type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    required=True,
-)
-@click.argument(
-    'to_path',
-    type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    required=True,
-)
-def match(from_path: str, to_path: str):
-    from_map: PathGroup = _group_by(_scan_dir(Path(from_path)))
-    to_map: PathGroup = _group_by(_scan_dir(Path(to_path)))
+@existing_dir('from_dir')
+@existing_dir('to_dir')
+def match(from_dir: str, to_dir: str):
+    """Find duplicates."""
+    for m in set(_match(Path(from_dir), Path(to_dir))):
+        print('\t'.join([str(m.orig), str(m.dupe), m.md5]))
+
+
+def _match(from_path: Path, to_path: Path) -> Iterable[Match]:
+    from_map: PathGroup = _group_by(set(_scan_dir(from_path)))
+    to_map: PathGroup = _group_by(set(_scan_dir(to_path)))
 
     name_matches = set(from_map) & set(to_map)
 
     for m in name_matches:
         for h, fs in _group_by(from_map[m] + to_map[m], identify=_hash).items():
-            dupes, orig = _split(fs, lambda f: _is_ancestor(Path(to_path), f))
+            dupes, orig = _split(fs, lambda f: _is_ancestor(to_path, f))
             if orig:
                 orig_min = min(orig, key=lambda x: str(x.resolve()))
                 yield from (Match(orig=orig_min, dupe=d, md5=h) for d in dupes)
