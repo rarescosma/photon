@@ -5,7 +5,7 @@ BINDIR?=$(PREFIX)/bin
 
 all: dist/$(PROJECT)
 
-dist/$(PROJECT): .venv/freeze
+dist/$(PROJECT): .venv/freeze test
 	. .venv/bin/activate && pyinstaller --onefile $(ENTRYPOINT)
 
 install: dist/$(PROJECT)
@@ -17,9 +17,15 @@ clean:
 	rm -rf dist build *.spec __pycache__ *.egg-info .python-version .venv
 	rm -f $(DESTDIR)$(BINDIR)/$(PROJECT)
 
+test: .venv/freeze
+	. .venv/bin/activate && mypy $(PROJECT).py && pylint $(PROJECT).py
+
 .python-version:
 	pyenv local 3.7.2
 
 .venv/freeze: .python-version
 	test -f .venv/bin/activate || python3 -mvenv .venv --prompt $(PROJECT)
-	. .venv/bin/activate && pip install -e . && pip freeze > .venv/freeze
+	. .venv/bin/activate \
+	  && pip install -e . \
+	  && pip install -r test-requirements.txt \
+	  && pip freeze > .venv/freeze

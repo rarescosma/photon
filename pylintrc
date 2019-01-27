@@ -1,0 +1,15 @@
+[MASTER]
+max-line-length=80
+min-public-methods=1
+ignore=
+    jimbob/tests
+
+[MESSAGES CONTROL]
+disable=
+    invalid-name,
+    too-few-public-methods,
+    too-many-return-statements
+
+[SIMILARITIES]
+min-similarity-lines=8
+
