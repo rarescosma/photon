@@ -53,27 +53,25 @@ def dedupe(from_dir: str, to_dir: str):
 
 def _match(from_path: Path, to_path: Path) -> Iterable[Match]:
     """Find duplicates in to_path relative to from_path."""
-    from_map: PathGroup = _group_by(set(_scan_dir(from_path)))
-    to_map: PathGroup = _group_by(set(_scan_dir(to_path)))
+    name_key = attrgetter('name')
+    from_map: PathGroup = _group_by(set(_scan_dir(from_path)), key=name_key)
+    to_map: PathGroup = _group_by(set(_scan_dir(to_path)), key=name_key)
 
     name_matches = set(from_map) & set(to_map)
 
     for m in name_matches:
-        for h, fs in _group_by(from_map[m] + to_map[m], identify=_hash).items():
+        for h, fs in _group_by(from_map[m] + to_map[m], key=_hash).items():
             dupes, orig = _split(fs, lambda f: _is_ancestor(to_path, f))
             if orig:
                 orig_min = min(orig, key=lambda x: str(x.resolve()))
                 yield from (Match(orig=orig_min, dupe=d, md5=h) for d in dupes)
 
 
-def _group_by(
-        xs: Iterable[A],
-        identify: Callable[[A], K] = attrgetter('name')
-) -> Dict[K, List[A]]:
-    """Group xs by an identifier function."""
+def _group_by(xs: Iterable[A], key: Callable[[A], K]) -> Dict[K, List[A]]:
+    """Group xs by the result of the key function."""
     res: Dict[K, List[A]] = defaultdict(list)
     for x in xs:
-        res[identify(x)].append(x)
+        res[key(x)].append(x)
     return res
 
 
