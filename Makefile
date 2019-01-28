@@ -1,7 +1,7 @@
 PROJECT=photon
 ENTRYPOINT=$(PROJECT).py
 PREFIX?=$(HOME)
-BINDIR?=$(PREFIX)/bin
+BINDIR=$(PREFIX)/bin
 
 all: dist/$(PROJECT)
 
@@ -10,12 +10,11 @@ dist/$(PROJECT): .venv/freeze test
 
 install: dist/$(PROJECT)
 	mkdir -p $(DESTDIR)$(BINDIR)
-	cp dist/$(PROJECT) $(DESTDIR)$(BINDIR)/
+	cp -f dist/$(PROJECT) $(DESTDIR)$(BINDIR)/
 	chmod 755 $(DESTDIR)$(BINDIR)/$(PROJECT)
 
 clean:
 	rm -rf dist build *.spec __pycache__ *.egg-info .python-version .venv
-	rm -f $(DESTDIR)$(BINDIR)/$(PROJECT)
 
 test: .venv/freeze
 	. .venv/bin/activate && mypy $(PROJECT).py && pylint $(PROJECT).py
